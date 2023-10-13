@@ -73,6 +73,8 @@ public class Consumer {
             ConfUtil.fillProperties(client, properties);
         }
 
+        ConfUtil.processFileValueReferences(properties);
+
         ConfUtil.verifyProperties(properties);
 
         String bootstrapServers = (String) properties.get(KafkaCrossDcConf.BOOTSTRAP_SERVERS);

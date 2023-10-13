@@ -138,23 +138,17 @@ public class MirroringUpdateRequestProcessorFactory extends UpdateRequestProcess
         try {
             SolrZkClient solrZkClient = core.getCoreContainer().getZkController().getZkClient();
             ConfUtil.fillProperties(solrZkClient, properties);
-            applyArgsOverrides();
             CollectionProperties cp = new CollectionProperties(solrZkClient);
-             Map<String,String> collectionProperties = cp.getCollectionProperties(core.getCoreDescriptor().getCollectionName());
-            for (ConfigProperty configKey : KafkaCrossDcConf.CONFIG_PROPERTIES) {
-                String val = collectionProperties.get("crossdc." + configKey.getKey());
-                if (val != null && !val.isBlank()) {
-                    properties.put(configKey.getKey(), val);
-                }
-            }
+            Map<String, String> collectionProperties = cp.getCollectionProperties(core.getCoreDescriptor().getCollectionName());
+            ConfUtil.fillCollectionProperties(collectionProperties, properties);
             String enabledVal = collectionProperties.get("crossdc.enabled");
             if (enabledVal != null) {
-                if (Boolean.parseBoolean(enabledVal.toString())) {
-                    this.enabled = true;
-                } else {
-                    this.enabled = false;
-                }
+                this.enabled = Boolean.parseBoolean(enabledVal);
             }
+
+            ConfUtil.processFileValueReferences(properties);
+
+            applyArgsOverrides();
         } catch (Exception e) {
             log.error("Exception looking for CrossDC configuration in Zookeeper", e);
             throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Exception looking for CrossDC configuration in Zookeeper", e);
@@ -179,6 +173,7 @@ public class MirroringUpdateRequestProcessorFactory extends UpdateRequestProcess
 
         mirroringHandler = new KafkaRequestMirroringHandler(sink);
     }
+
 
     private static Integer getIntegerPropValue(String name, Properties props) {
         String value = props.getProperty(name);

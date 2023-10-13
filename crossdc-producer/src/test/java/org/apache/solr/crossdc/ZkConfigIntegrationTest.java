@@ -24,6 +24,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.invoke.MethodHandles;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -55,8 +58,6 @@ import java.util.Properties;
   public static void beforeSolrAndKafkaIntegrationTest() throws Exception {
 
     Properties config = new Properties();
-    config.put("unclean.leader.election.enable", "true");
-    config.put("enable.partition.eof", "false");
 
     kafkaCluster = new EmbeddedKafkaCluster(NUM_BROKERS, config) {
       public String bootstrapServers() {
@@ -76,7 +77,13 @@ import java.util.Properties;
     solrCluster1 = new SolrCloudTestCase.Builder(1, createTempDir()).addConfig("conf",
         getFile("src/test/resources/configs/cloud-minimal/conf").toPath()).configure();
 
-    props.setProperty(KafkaCrossDcConf.TOPIC_NAME, TOPIC2);
+    // Create a temporary file
+    Path tmpFile = createTempFile("testPropertyFromFile", ".txt");
+
+    // Write a value to the file
+    Files.write(tmpFile, TOPIC2.getBytes(StandardCharsets.UTF_8));
+
+    props.setProperty(KafkaCrossDcConf.TOPIC_NAME, "@file:" + tmpFile.toString());
     props.setProperty(KafkaCrossDcConf.BOOTSTRAP_SERVERS, kafkaCluster.bootstrapServers());
 
     System.setProperty(KafkaCrossDcConf.TOPIC_NAME, TOPIC2);

@@ -17,6 +17,7 @@
 package org.apache.solr.crossdc.common;
 
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.cloud.CollectionProperties;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.crossdc.common.ConfigProperty;
 import org.apache.solr.crossdc.common.CrossDcConf;
@@ -25,7 +26,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -81,6 +86,33 @@ public class ConfUtil {
       } catch (Exception e) {
         log.error("Exception looking for CrossDC configuration in Zookeeper", e);
         throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Exception looking for CrossDC configuration in Zookeeper", e);
+      }
+    }
+  }
+
+  public static void fillCollectionProperties(Map<String, String> collectionProperties, Map<String, Object> properties) throws IOException {
+    for (ConfigProperty configKey : KafkaCrossDcConf.CONFIG_PROPERTIES) {
+      String val = collectionProperties.get("crossdc." + configKey.getKey());
+      if (val != null && !val.isBlank()) {
+        properties.put(configKey.getKey(), val);
+      }
+    }
+  }
+
+  public static void processFileValueReferences(Map<String, Object> properties) {
+    for (Map.Entry<String, Object> entry : properties.entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      String val = entry.getValue().toString();
+      if (val.startsWith("@file:")) {
+        String filePath = val.substring(6); // Skip "@file:"
+        try {
+          val = new String(Files.readAllBytes(Paths.get(filePath)), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+          throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Error reading file for property " + entry.getKey(), e);
+        }
+        entry.setValue(val);
       }
     }
   }
